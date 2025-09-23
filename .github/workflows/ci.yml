@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    # Run weekly to catch issues with dependencies
+    - cron: '0 8 * * 1'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '1.25'
+
+    - name: Install Mage
+      run: go install github.com/magefile/mage@latest
+
+    - name: Download dependencies
+      run: mage deps
+
+    - name: Run tests with coverage
+      run: mage test
+
+    - name: Run tests with race detector
+      run: mage testrace
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.out
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '1.25'
+
+    - name: Install Mage
+      run: go install github.com/magefile/mage@latest
+
+    - name: Run linting
+      run: mage lint
+
+  examples:
+    name: Validate Examples
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '1.25'
+
+    - name: Install Mage
+      run: go install github.com/magefile/mage@latest
+
+    - name: Run examples
+      run: mage examples
