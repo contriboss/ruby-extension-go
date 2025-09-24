@@ -7,13 +7,13 @@ import (
 
 func TestBuilderFactory(t *testing.T) {
 	factory := NewBuilderFactory()
-	
+
 	// Test that all expected builders are registered
 	builders := factory.ListBuilders()
 	if len(builders) != 5 {
 		t.Errorf("Expected 5 builders, got %d", len(builders))
 	}
-	
+
 	// Test builder detection for each type
 	testCases := []struct {
 		extensionFile string
@@ -28,20 +28,20 @@ func TestBuilderFactory(t *testing.T) {
 		{"ext/CMakeLists.txt", "CMake"},
 		{"ext/Cargo.toml", "Cargo"},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.extensionFile, func(t *testing.T) {
 			builder, err := factory.BuilderFor(tc.extensionFile)
 			if err != nil {
 				t.Fatalf("Expected builder for %s, got error: %v", tc.extensionFile, err)
 			}
-			
+
 			if builder.Name() != tc.expectedName {
 				t.Errorf("Expected builder %s for %s, got %s", tc.expectedName, tc.extensionFile, builder.Name())
 			}
 		})
 	}
-	
+
 	// Test unsupported extension
 	_, err := factory.BuilderFor("unknown.file")
 	if err == nil {
@@ -51,9 +51,9 @@ func TestBuilderFactory(t *testing.T) {
 
 func TestBuilderDetection(t *testing.T) {
 	testCases := []struct {
-		name      string
-		builder   Builder
-		validFiles []string
+		name         string
+		builder      Builder
+		validFiles   []string
 		invalidFiles []string
 	}{
 		{
@@ -73,7 +73,7 @@ func TestBuilderDetection(t *testing.T) {
 			},
 		},
 		{
-			name:    "ConfigureBuilder", 
+			name:    "ConfigureBuilder",
 			builder: &ConfigureBuilder{},
 			validFiles: []string{
 				"configure",
@@ -128,14 +128,14 @@ func TestBuilderDetection(t *testing.T) {
 			},
 			invalidFiles: []string{
 				"extconf.rb",
-				"configure", 
+				"configure",
 				"Rakefile",
 				"CMakeLists.txt",
 				"cargo.toml",
 			},
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Test valid files
@@ -144,7 +144,7 @@ func TestBuilderDetection(t *testing.T) {
 					t.Errorf("%s should be able to build %s", tc.name, file)
 				}
 			}
-			
+
 			// Test invalid files
 			for _, file := range tc.invalidFiles {
 				if tc.builder.CanBuild(file) {
@@ -169,12 +169,12 @@ func TestMatchesPattern(t *testing.T) {
 		{"Cargo.toml", []string{"Cargo\\.toml$"}, true},
 		{"unknown.file", []string{"extconf\\.rb$", "configure$"}, false},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.filename, func(t *testing.T) {
 			result := MatchesPattern(tc.filename, tc.patterns...)
 			if result != tc.expected {
-				t.Errorf("MatchesPattern(%s, %v) = %v, expected %v", 
+				t.Errorf("MatchesPattern(%s, %v) = %v, expected %v",
 					tc.filename, tc.patterns, result, tc.expected)
 			}
 		})
@@ -193,12 +193,12 @@ func TestMatchesExtension(t *testing.T) {
 		{"file.py", []string{".rb", ".txt"}, false},
 		{"noext", []string{".rb"}, false},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.filename, func(t *testing.T) {
 			result := MatchesExtension(tc.filename, tc.extensions...)
 			if result != tc.expected {
-				t.Errorf("MatchesExtension(%s, %v) = %v, expected %v", 
+				t.Errorf("MatchesExtension(%s, %v) = %v, expected %v",
 					tc.filename, tc.extensions, result, tc.expected)
 			}
 		})
@@ -208,7 +208,7 @@ func TestMatchesExtension(t *testing.T) {
 func TestBuildError(t *testing.T) {
 	output := []string{"line 1", "line 2", "error occurred"}
 	err := BuildError("TestBuilder", output, nil)
-	
+
 	expected := "TestBuilder build failed: <nil>\n\nBuild output:\nline 1\nline 2\nerror occurred"
 	if err.Error() != expected {
 		t.Errorf("BuildError output mismatch.\nExpected: %s\nGot: %s", expected, err.Error())
@@ -226,16 +226,16 @@ func TestBuildConfig(t *testing.T) {
 		Verbose:      true,
 		Parallel:     4,
 	}
-	
+
 	// Test that configuration values are properly set
 	if config.GemDir != "/path/to/gem" {
 		t.Errorf("Expected GemDir '/path/to/gem', got '%s'", config.GemDir)
 	}
-	
+
 	if config.Parallel != 4 {
 		t.Errorf("Expected Parallel 4, got %d", config.Parallel)
 	}
-	
+
 	if !config.Verbose {
 		t.Error("Expected Verbose to be true")
 	}
@@ -243,15 +243,15 @@ func TestBuildConfig(t *testing.T) {
 
 func TestBuildAllExtensions(t *testing.T) {
 	factory := NewBuilderFactory()
-	
+
 	config := &BuildConfig{
 		GemDir:      "/tmp/test",
 		RubyEngine:  "ruby",
 		RubyVersion: "3.4.0",
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// Test with no extensions
 	results, err := factory.BuildAllExtensions(ctx, config, nil)
 	if err != nil {
@@ -260,7 +260,7 @@ func TestBuildAllExtensions(t *testing.T) {
 	if len(results) != 0 {
 		t.Errorf("Expected 0 results for empty extensions, got %d", len(results))
 	}
-	
+
 	// Test with unknown extension
 	results, err = factory.BuildAllExtensions(ctx, config, []string{"unknown.file"})
 	if err == nil {

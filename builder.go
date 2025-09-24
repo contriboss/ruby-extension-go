@@ -19,27 +19,34 @@ type BuildResult struct {
 	Error      error
 }
 
+// CommonBuildSteps defines the standard 3-step build pattern used by multiple builders
+type CommonBuildSteps struct {
+	ConfigureFunc func(ctx context.Context, config *BuildConfig, extensionDir string, result *BuildResult) error
+	BuildFunc     func(ctx context.Context, config *BuildConfig, extensionDir string, result *BuildResult) error
+	FindFunc      func(extensionDir string) ([]string, error)
+}
+
 // BuildConfig contains configuration for the build process
 type BuildConfig struct {
 	// Source paths
-	GemDir       string   // Root directory of the extracted gem
-	ExtensionDir string   // Directory containing the extension files
-	DestPath     string   // Destination for compiled extensions
-	LibDir       string   // Optional lib directory for extension installation
+	GemDir       string // Root directory of the extracted gem
+	ExtensionDir string // Directory containing the extension files
+	DestPath     string // Destination for compiled extensions
+	LibDir       string // Optional lib directory for extension installation
 
 	// Build arguments
-	BuildArgs    []string // Additional build arguments
-	Env          map[string]string // Environment variables for build
+	BuildArgs []string          // Additional build arguments
+	Env       map[string]string // Environment variables for build
 
 	// Ruby configuration
-	RubyEngine   string   // Ruby engine (ruby, jruby, truffleruby)
-	RubyVersion  string   // Ruby version (3.4.0, etc.)
-	RubyPath     string   // Path to Ruby executable
+	RubyEngine  string // Ruby engine (ruby, jruby, truffleruby)
+	RubyVersion string // Ruby version (3.4.0, etc.)
+	RubyPath    string // Path to Ruby executable
 
 	// Build options
-	Verbose      bool     // Enable verbose output
-	CleanFirst   bool     // Run clean before build
-	Parallel     int      // Number of parallel jobs (for make -j)
+	Verbose    bool // Enable verbose output
+	CleanFirst bool // Run clean before build
+	Parallel   int  // Number of parallel jobs (for make -j)
 }
 
 // Builder interface defines the contract for all extension builders
@@ -174,4 +181,38 @@ func BuildError(builder string, output []string, err error) error {
 		return fmt.Errorf("%s build failed: %v\n\nBuild output:\n%s", builder, err, outputStr)
 	}
 	return fmt.Errorf("%s build failed: %v", builder, err)
+}
+
+// runCommonBuild executes the standard 3-step build process
+func runCommonBuild(ctx context.Context, config *BuildConfig, extensionFile string, steps CommonBuildSteps) (*BuildResult, error) {
+	result := &BuildResult{
+		Success: false,
+		Output:  []string{},
+	}
+
+	extensionPath := filepath.Join(config.GemDir, extensionFile)
+	extensionDir := filepath.Dir(extensionPath)
+
+	// Step 1: Configure/prepare
+	if err := steps.ConfigureFunc(ctx, config, extensionDir, result); err != nil {
+		result.Error = err
+		return result, err
+	}
+
+	// Step 2: Build
+	if err := steps.BuildFunc(ctx, config, extensionDir, result); err != nil {
+		result.Error = err
+		return result, err
+	}
+
+	// Step 3: Find built extensions
+	extensions, err := steps.FindFunc(extensionDir)
+	if err != nil {
+		result.Error = err
+		return result, err
+	}
+
+	result.Extensions = extensions
+	result.Success = true
+	return result, nil
 }
