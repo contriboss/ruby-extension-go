@@ -47,6 +47,9 @@ type BuildConfig struct {
 	Verbose    bool // Enable verbose output
 	CleanFirst bool // Run clean before build
 	Parallel   int  // Number of parallel jobs (for make -j)
+
+	// Failure handling
+	StopOnFailure bool // Stop after the first failed extension build
 }
 
 // Builder interface defines the contract for all extension builders
@@ -116,6 +119,17 @@ func (f *BuilderFactory) BuildAllExtensions(ctx context.Context, config *BuildCo
 	var firstError error
 
 	for _, extension := range extensions {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			if firstError == nil {
+				firstError = ctxErr
+			}
+			results = append(results, &BuildResult{
+				Success: false,
+				Error:   ctxErr,
+			})
+			break
+		}
+
 		builder, err := f.BuilderFor(extension)
 		if err != nil {
 			if firstError == nil {
@@ -125,6 +139,9 @@ func (f *BuilderFactory) BuildAllExtensions(ctx context.Context, config *BuildCo
 				Success: false,
 				Error:   err,
 			})
+			if config.StopOnFailure {
+				break
+			}
 			continue
 		}
 
@@ -145,7 +162,9 @@ func (f *BuilderFactory) BuildAllExtensions(ctx context.Context, config *BuildCo
 
 		// Stop on first failure unless configured otherwise
 		if !result.Success {
-			break
+			if config.StopOnFailure {
+				break
+			}
 		}
 	}
 
@@ -177,10 +196,16 @@ func MatchesExtension(filename string, extensions ...string) bool {
 // BuildError creates a standardized build error
 func BuildError(builder string, output []string, err error) error {
 	outputStr := strings.Join(output, "\n")
-	if outputStr != "" {
-		return fmt.Errorf("%s build failed: %v\n\nBuild output:\n%s", builder, err, outputStr)
+	var prefix string
+	if err != nil {
+		prefix = fmt.Sprintf("%s build failed: %v", builder, err)
+	} else {
+		prefix = fmt.Sprintf("%s build failed", builder)
 	}
-	return fmt.Errorf("%s build failed: %v", builder, err)
+	if outputStr != "" {
+		return fmt.Errorf("%s\n\nBuild output:\n%s", prefix, outputStr)
+	}
+	return fmt.Errorf("%s", prefix)
 }
 
 // runCommonBuild executes the standard 3-step build process
