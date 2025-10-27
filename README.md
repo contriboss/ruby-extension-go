@@ -12,6 +12,8 @@ This library provides native extension compilation support for Ruby gems in pure
 
 Ruby equivalent: `Gem::Ext::Builder`
 
+**Requirements:** Go 1.25 or later
+
 ## Supported Build Systems
 
 - **extconf.rb** - The most common Ruby extension build system
@@ -135,6 +137,31 @@ For Autotools-based extensions:
 - **Build Caching** - Avoid rebuilding unchanged extensions
 - **Error Recovery** - Detailed error messages for debugging
 - **Platform Detection** - Automatic platform-specific adjustments
+
+### Go 1.25+ Features
+
+This library leverages modern Go features:
+
+- **Automatic GOMAXPROCS tuning** - Respects container CPU limits on Linux
+- **DWARF 5 debug info** - Smaller binaries and faster linking
+- **Modern generics** - Type-safe builder patterns with simplified core types
+- **Performance optimizations** - Benefit from Go 1.25 compiler improvements
+
+#### Experimental Features
+
+You can enable experimental Go 1.25 features for potential performance improvements:
+
+```bash
+# New garbage collector (10-40% GC overhead reduction)
+# Best for small object-intensive applications
+GOEXPERIMENT=greenteagc go build
+
+# JSON v2 with better performance
+# Substantially faster decoding, encoding at parity
+GOEXPERIMENT=jsonv2 go build
+```
+
+**Note:** These are experimental features. Test thoroughly before using in production. They can be enabled via environment variable or build tags without code changes.
 
 ## Architecture
 

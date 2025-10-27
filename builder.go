@@ -1,6 +1,9 @@
 // Package rubyext provides native extension compilation support for Ruby gems.
 // It supports multiple build systems (extconf.rb, Rakefile, CMake, Cargo, etc.)
+//
 // Ruby equivalent: Gem::Ext::Builder
+//
+// Requires Go 1.25 or later.
 package rubyext
 
 import (

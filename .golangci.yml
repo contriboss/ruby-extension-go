@@ -53,6 +53,8 @@ linters:
     govet:
       enable:
         - shadow
+        - waitgroup  # Go 1.25: detect misplaced WaitGroup.Add() calls
+        - hostport   # Go 1.25: recommend net.JoinHostPort() over string formatting
     lll:
       line-length: 140
     misspell:
