@@ -1,246 +1,80 @@
-// Package rubyext provides native extension compilation support for Ruby gems.
-// It supports multiple build systems (extconf.rb, Rakefile, CMake, Cargo, etc.)
-//
-// Ruby equivalent: Gem::Ext::Builder
-//
-// Requires Go 1.25 or later.
 package rubyext
 
-import (
-	"context"
-	"fmt"
-	"path/filepath"
-	"regexp"
-	"strings"
-)
+import "context"
 
-// BuildResult contains the output and status of a build operation
-type BuildResult struct {
-	Success    bool
-	Output     []string
-	Extensions []string // List of built extension files (.so/.bundle)
-	Error      error
-}
-
-// CommonBuildSteps defines the standard 3-step build pattern used by multiple builders
-type CommonBuildSteps struct {
-	ConfigureFunc func(ctx context.Context, config *BuildConfig, extensionDir string, result *BuildResult) error
-	BuildFunc     func(ctx context.Context, config *BuildConfig, extensionDir string, result *BuildResult) error
-	FindFunc      func(extensionDir string) ([]string, error)
-}
-
-// BuildConfig contains configuration for the build process
-type BuildConfig struct {
-	// Source paths
-	GemDir       string // Root directory of the extracted gem
-	ExtensionDir string // Directory containing the extension files
-	DestPath     string // Destination for compiled extensions
-	LibDir       string // Optional lib directory for extension installation
-
-	// Build arguments
-	BuildArgs []string          // Additional build arguments
-	Env       map[string]string // Environment variables for build
-
-	// Ruby configuration
-	RubyEngine  string // Ruby engine (ruby, jruby, truffleruby)
-	RubyVersion string // Ruby version (3.4.0, etc.)
-	RubyPath    string // Path to Ruby executable
-
-	// Build options
-	Verbose    bool // Enable verbose output
-	CleanFirst bool // Run clean before build
-	Parallel   int  // Number of parallel jobs (for make -j)
-
-	// Failure handling
-	StopOnFailure bool // Stop after the first failed extension build
-}
-
-// Builder interface defines the contract for all extension builders
+// Builder defines the interface that all extension builders must implement.
+//
+// Each builder is responsible for a specific build system (extconf.rb, CMake, Cargo, etc.)
+// and must implement these four methods to integrate with the BuilderFactory.
+//
+// # Builder Lifecycle
+//
+//  1. CanBuild() - Factory calls this to find the right builder for an extension file
+//  2. Build() - Factory calls this to compile the extension
+//  3. Clean() - Optional cleanup of build artifacts
+//
+// # Example Implementation
+//
+//	type MyBuilder struct{}
+//
+//	func (b *MyBuilder) Name() string {
+//	    return "MyBuildSystem"
+//	}
+//
+//	func (b *MyBuilder) CanBuild(extensionFile string) bool {
+//	    return strings.HasSuffix(extensionFile, "mybuild.conf")
+//	}
+//
+//	func (b *MyBuilder) Build(ctx context.Context, config *BuildConfig, extensionFile string) (*BuildResult, error) {
+//	    // Build implementation
+//	    result := &BuildResult{Success: true}
+//	    // ... build logic ...
+//	    return result, nil
+//	}
+//
+//	func (b *MyBuilder) Clean(ctx context.Context, config *BuildConfig, extensionFile string) error {
+//	    // Cleanup implementation
+//	    return nil
+//	}
+//
+// # Thread Safety
+//
+// Builder implementations should be stateless and thread-safe.
+// The same builder instance may be used to build multiple extensions concurrently.
 type Builder interface {
-	// Name returns the human-readable name of this builder
+	// Name returns the human-readable name of this builder.
+	//
+	// This name is used in error messages and logs.
+	// Examples: "ExtConf", "CMake", "Cargo"
 	Name() string
 
-	// CanBuild checks if this builder can handle the given extension file
+	// CanBuild checks if this builder can handle the given extension file.
+	//
+	// The extensionFile parameter is typically just the filename (e.g., "extconf.rb")
+	// or a relative path (e.g., "ext/myext/extconf.rb").
+	//
+	// Returns true if this builder should be used for the file.
 	CanBuild(extensionFile string) bool
 
-	// Build compiles the extension and returns the result
+	// Build compiles the extension and returns the result.
+	//
+	// This method should:
+	//  1. Configure the build (generate Makefile, etc.)
+	//  2. Compile the extension
+	//  3. Locate the compiled extension files
+	//
+	// The extensionFile path is relative to config.GemDir.
+	//
+	// Returns:
+	//   - BuildResult with Success=true and Extensions list on success
+	//   - BuildResult with Success=false and Error on failure
 	Build(ctx context.Context, config *BuildConfig, extensionFile string) (*BuildResult, error)
 
-	// Clean removes build artifacts (optional, some builders may not support this)
+	// Clean removes build artifacts.
+	//
+	// This is optional - some builders may not support cleaning.
+	// Returns nil if cleaning is not supported or completes successfully.
+	//
+	// The extensionFile path is relative to config.GemDir.
 	Clean(ctx context.Context, config *BuildConfig, extensionFile string) error
-}
-
-// BuilderFactory manages the registration and creation of extension builders
-type BuilderFactory struct {
-	builders []Builder
-}
-
-// NewBuilderFactory creates a new factory with all standard builders registered
-func NewBuilderFactory() *BuilderFactory {
-	factory := &BuilderFactory{}
-
-	// Register all standard builders
-	factory.Register(&ExtConfBuilder{})
-	factory.Register(&ConfigureBuilder{})
-	factory.Register(&RakeBuilder{})
-	factory.Register(&CmakeBuilder{})
-	factory.Register(&CargoBuilder{})
-
-	return factory
-}
-
-// Register adds a new builder to the factory
-func (f *BuilderFactory) Register(builder Builder) {
-	f.builders = append(f.builders, builder)
-}
-
-// BuilderFor returns the appropriate builder for the given extension file
-func (f *BuilderFactory) BuilderFor(extensionFile string) (Builder, error) {
-	filename := filepath.Base(extensionFile)
-
-	for _, builder := range f.builders {
-		if builder.CanBuild(filename) {
-			return builder, nil
-		}
-	}
-
-	return nil, fmt.Errorf("no builder found for extension file: %s", filename)
-}
-
-// ListBuilders returns all registered builders
-func (f *BuilderFactory) ListBuilders() []Builder {
-	return append([]Builder{}, f.builders...)
-}
-
-// BuildAllExtensions builds all extensions found in the gem specification
-func (f *BuilderFactory) BuildAllExtensions(ctx context.Context, config *BuildConfig, extensions []string) ([]*BuildResult, error) {
-	if len(extensions) == 0 {
-		return nil, nil
-	}
-
-	var results []*BuildResult
-	var firstError error
-
-	for _, extension := range extensions {
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			if firstError == nil {
-				firstError = ctxErr
-			}
-			results = append(results, &BuildResult{
-				Success: false,
-				Error:   ctxErr,
-			})
-			break
-		}
-
-		builder, err := f.BuilderFor(extension)
-		if err != nil {
-			if firstError == nil {
-				firstError = err
-			}
-			results = append(results, &BuildResult{
-				Success: false,
-				Error:   err,
-			})
-			if config.StopOnFailure {
-				break
-			}
-			continue
-		}
-
-		result, err := builder.Build(ctx, config, extension)
-		if err != nil {
-			if firstError == nil {
-				firstError = err
-			}
-			if result == nil {
-				result = &BuildResult{
-					Success: false,
-					Error:   err,
-				}
-			}
-		}
-
-		results = append(results, result)
-
-		// Stop on first failure unless configured otherwise
-		if !result.Success {
-			if config.StopOnFailure {
-				break
-			}
-		}
-	}
-
-	return results, firstError
-}
-
-// Common helper functions for builders
-
-// MatchesPattern checks if a filename matches any of the given regex patterns
-func MatchesPattern(filename string, patterns ...string) bool {
-	for _, pattern := range patterns {
-		if matched, _ := regexp.MatchString(pattern, filename); matched {
-			return true
-		}
-	}
-	return false
-}
-
-// MatchesExtension checks if a filename has any of the given extensions
-func MatchesExtension(filename string, extensions ...string) bool {
-	for _, ext := range extensions {
-		if strings.HasSuffix(strings.ToLower(filename), strings.ToLower(ext)) {
-			return true
-		}
-	}
-	return false
-}
-
-// BuildError creates a standardized build error
-func BuildError(builder string, output []string, err error) error {
-	outputStr := strings.Join(output, "\n")
-	var prefix string
-	if err != nil {
-		prefix = fmt.Sprintf("%s build failed: %v", builder, err)
-	} else {
-		prefix = fmt.Sprintf("%s build failed", builder)
-	}
-	if outputStr != "" {
-		return fmt.Errorf("%s\n\nBuild output:\n%s", prefix, outputStr)
-	}
-	return fmt.Errorf("%s", prefix)
-}
-
-// runCommonBuild executes the standard 3-step build process
-func runCommonBuild(ctx context.Context, config *BuildConfig, extensionFile string, steps CommonBuildSteps) (*BuildResult, error) {
-	result := &BuildResult{
-		Success: false,
-		Output:  []string{},
-	}
-
-	extensionPath := filepath.Join(config.GemDir, extensionFile)
-	extensionDir := filepath.Dir(extensionPath)
-
-	// Step 1: Configure/prepare
-	if err := steps.ConfigureFunc(ctx, config, extensionDir, result); err != nil {
-		result.Error = err
-		return result, err
-	}
-
-	// Step 2: Build
-	if err := steps.BuildFunc(ctx, config, extensionDir, result); err != nil {
-		result.Error = err
-		return result, err
-	}
-
-	// Step 3: Find built extensions
-	extensions, err := steps.FindFunc(extensionDir)
-	if err != nil {
-		result.Error = err
-		return result, err
-	}
-
-	result.Extensions = extensions
-	result.Success = true
-	return result, nil
 }
