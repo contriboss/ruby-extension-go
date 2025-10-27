@@ -18,6 +18,32 @@ func (b *ConfigureBuilder) Name() string {
 	return "Configure"
 }
 
+// RequiredTools returns the tools needed for configure-based builds
+func (b *ConfigureBuilder) RequiredTools() []ToolRequirement {
+	return []ToolRequirement{
+		{
+			Name:         "sh",
+			Alternatives: []string{"bash", "dash"},
+			Purpose:      "Shell to execute configure script",
+		},
+		{
+			Name:         "gcc",
+			Alternatives: []string{"clang", "cc"},
+			Purpose:      "C/C++ compiler",
+		},
+		{
+			Name:         "make",
+			Alternatives: []string{"gmake"},
+			Purpose:      "Build automation tool",
+		},
+	}
+}
+
+// CheckTools verifies that shell and make are available
+func (b *ConfigureBuilder) CheckTools() error {
+	return CheckRequiredTools(b.RequiredTools())
+}
+
 // CanBuild checks if this builder can handle the extension file
 func (b *ConfigureBuilder) CanBuild(extensionFile string) bool {
 	return MatchesPattern(extensionFile, `configure$`) || MatchesPattern(extensionFile, `configure\.sh$`)

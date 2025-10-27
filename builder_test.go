@@ -16,8 +16,9 @@ func TestBuilderFactory(t *testing.T) {
 
 	// Test that all expected builders are registered
 	builders := factory.ListBuilders()
-	if len(builders) != 5 {
-		t.Errorf("Expected 5 builders, got %d", len(builders))
+	expectedCount := 11 // 5 original + 3 new specific + 3 generic language builders
+	if len(builders) != expectedCount {
+		t.Errorf("Expected %d builders, got %d", expectedCount, len(builders))
 	}
 
 	// Test builder detection for each type

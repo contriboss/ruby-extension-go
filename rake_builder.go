@@ -22,6 +22,26 @@ func (b *RakeBuilder) Name() string {
 	return "Rake"
 }
 
+// RequiredTools returns the tools needed for Rake builds
+func (b *RakeBuilder) RequiredTools() []ToolRequirement {
+	return []ToolRequirement{
+		{
+			Name:    "ruby",
+			Purpose: "Ruby interpreter",
+		},
+		{
+			Name:     "rake",
+			Optional: true,
+			Purpose:  "Ruby build tool (usually bundled with Ruby)",
+		},
+	}
+}
+
+// CheckTools verifies that Ruby and Rake are available
+func (b *RakeBuilder) CheckTools() error {
+	return CheckRequiredTools(b.RequiredTools())
+}
+
 // CanBuild checks if this builder can handle the extension file
 func (b *RakeBuilder) CanBuild(extensionFile string) bool {
 	filename := strings.ToLower(filepath.Base(extensionFile))

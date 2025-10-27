@@ -49,22 +49,48 @@ type BuilderFactory struct {
 // NewBuilderFactory creates a factory with all standard builders registered.
 //
 // The standard builders are registered in this order:
-//  1. ExtConfBuilder - extconf.rb files
-//  2. ConfigureBuilder - configure scripts
+//
+// Traditional Ruby builders:
+//  1. ExtConfBuilder - extconf.rb files (C/C++)
+//  2. ConfigureBuilder - configure scripts (autotools)
 //  3. RakeBuilder - Rakefile and mkrf_conf.rb
-//  4. CmakeBuilder - CMakeLists.txt
-//  5. CargoBuilder - Cargo.toml
+//
+// Modern build systems:
+//  4. CMakeBuilder - CMakeLists.txt
+//  5. CargoBuilder - Cargo.toml (Rust)
+//  6. MakefileBuilder - Plain Makefile
+//  7. GoBuilder - Go with CGO
+//  8. JavaBuilder - Java/JRuby extensions
+//
+// Modern languages (generic builders):
+//  9. CrystalBuilder - Crystal language
+//
+// 10. ZigBuilder - Zig language
+// 11. SwiftBuilder - Swift language
 //
 // This is the recommended way to create a BuilderFactory for most use cases.
+// Builders are checked in registration order, so more specific builders
+// should be registered first.
 func NewBuilderFactory() *BuilderFactory {
 	factory := &BuilderFactory{}
 
 	// Register all standard builders in priority order
+	// Traditional Ruby builders first (most common)
 	factory.Register(&ExtConfBuilder{})
 	factory.Register(&ConfigureBuilder{})
 	factory.Register(&RakeBuilder{})
+
+	// Modern build systems
 	factory.Register(&CmakeBuilder{})
 	factory.Register(&CargoBuilder{})
+	factory.Register(&MakefileBuilder{})
+	factory.Register(&GoBuilder{})
+	factory.Register(&JavaBuilder{})
+
+	// Modern languages via generic builders
+	factory.Register(NewCrystalBuilder())
+	factory.Register(NewZigBuilder())
+	factory.Register(NewSwiftBuilder())
 
 	return factory
 }

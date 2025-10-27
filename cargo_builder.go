@@ -24,6 +24,25 @@ func (b *CargoBuilder) Name() string {
 	return "Cargo"
 }
 
+// RequiredTools returns the tools needed for Cargo builds
+func (b *CargoBuilder) RequiredTools() []ToolRequirement {
+	return []ToolRequirement{
+		{
+			Name:    "cargo",
+			Purpose: "Rust package manager and build tool",
+		},
+		{
+			Name:    "rustc",
+			Purpose: "Rust compiler",
+		},
+	}
+}
+
+// CheckTools verifies that Cargo and Rust toolchain are available
+func (b *CargoBuilder) CheckTools() error {
+	return CheckRequiredTools(b.RequiredTools())
+}
+
 // CanBuild checks if this builder can handle the extension file
 func (b *CargoBuilder) CanBuild(extensionFile string) bool {
 	return MatchesPattern(extensionFile, `Cargo\.toml$`)

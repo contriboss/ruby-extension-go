@@ -25,6 +25,32 @@ func (b *CmakeBuilder) Name() string {
 	return "CMake"
 }
 
+// RequiredTools returns the tools needed for CMake builds
+func (b *CmakeBuilder) RequiredTools() []ToolRequirement {
+	return []ToolRequirement{
+		{
+			Name:    "cmake",
+			Purpose: "CMake build system generator",
+		},
+		{
+			Name:         "gcc",
+			Alternatives: []string{"clang", "cl"},
+			Purpose:      "C/C++ compiler",
+		},
+		{
+			Name:         "make",
+			Alternatives: []string{"gmake", "ninja", "nmake"},
+			Optional:     true,
+			Purpose:      "Build backend (CMake auto-detects if not specified)",
+		},
+	}
+}
+
+// CheckTools verifies that CMake and build tools are available
+func (b *CmakeBuilder) CheckTools() error {
+	return CheckRequiredTools(b.RequiredTools())
+}
+
 // CanBuild checks if this builder can handle the extension file
 func (b *CmakeBuilder) CanBuild(extensionFile string) bool {
 	return MatchesPattern(extensionFile, `CMakeLists\.txt$`)
