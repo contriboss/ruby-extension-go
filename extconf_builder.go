@@ -117,6 +117,8 @@ func (b *ExtConfBuilder) runExtConf(ctx context.Context, config *BuildConfig, ex
 }
 
 // runMake executes make to compile the extension
+//
+//nolint:dupl // Similar to makefile builder runMake but tailored for extconf
 func (b *ExtConfBuilder) runMake(ctx context.Context, config *BuildConfig, extensionDir string, result *BuildResult) error {
 	makeProgram := b.getMakeProgram()
 

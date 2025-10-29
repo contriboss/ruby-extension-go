@@ -78,7 +78,13 @@ func (b *ConfigureBuilder) Build(ctx context.Context, config *BuildConfig, exten
 		return result, err
 	}
 
-	result.Extensions = extensions
+	finalized, err := finalizeNativeExtensions(config, extensionFile, extensionDir, extensions)
+	if err != nil {
+		result.Error = err
+		return result, err
+	}
+
+	result.Extensions = finalized
 	result.Success = true
 	return result, nil
 }

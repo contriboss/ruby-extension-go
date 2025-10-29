@@ -114,8 +114,14 @@ func runCommonBuild(ctx context.Context, config *BuildConfig, extensionFile stri
 		return result, err
 	}
 
+	finalized, err := finalizeNativeExtensions(config, extensionFile, extensionDir, extensions)
+	if err != nil {
+		result.Error = err
+		return result, err
+	}
+
 	// Success!
-	result.Extensions = extensions
+	result.Extensions = finalized
 	result.Success = true
 	return result, nil
 }

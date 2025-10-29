@@ -70,6 +70,13 @@ func (b *CargoBuilder) Build(ctx context.Context, config *BuildConfig, extension
 		return result, err
 	}
 
+	finalized, err := finalizeNativeExtensions(config, extensionFile, extensionDir, result.Extensions)
+	if err != nil {
+		result.Error = err
+		return result, err
+	}
+
+	result.Extensions = finalized
 	result.Success = true
 	return result, nil
 }
