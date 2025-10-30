@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+var execLookPath = exec.LookPath
+
 // Ruby command constant
 const (
 	rubyCommand = "ruby"
@@ -99,7 +101,8 @@ func (b *RakeBuilder) Clean(ctx context.Context, config *BuildConfig, extensionF
 	extensionDir := filepath.Dir(extensionPath)
 
 	// Try rake clean task
-	cmd := exec.CommandContext(ctx, "rake", "clean")
+	cmdName, cmdArgs := b.determineRakeCommand(config, []string{"clean"})
+	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 	cmd.Dir = extensionDir
 
 	// Set environment for Ruby/rake
@@ -181,7 +184,8 @@ func (b *RakeBuilder) runRake(ctx context.Context, config *BuildConfig, extensio
 	// Add any custom build args
 	args = append(args, config.BuildArgs...)
 
-	cmd := exec.CommandContext(ctx, "rake", args...)
+	cmdName, cmdArgs := b.determineRakeCommand(config, args)
+	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 	cmd.Dir = extensionDir
 
 	// Set environment variables
@@ -224,6 +228,25 @@ func (b *RakeBuilder) runRake(ctx context.Context, config *BuildConfig, extensio
 	}
 
 	return nil
+}
+
+func (b *RakeBuilder) determineRakeCommand(config *BuildConfig, args []string) (cmd string, resolvedArgs []string) {
+	if rakePath, err := execLookPath("rake"); err == nil {
+		return rakePath, append([]string{}, args...)
+	}
+
+	rubyPath := config.RubyPath
+	if rubyPath == "" {
+		rubyPath = rubyCommand
+	}
+
+	rubyArgs := []string{
+		"-rrubygems",
+		"-e", `load Gem.bin_path("rake", "rake")`,
+		"--",
+	}
+	rubyArgs = append(rubyArgs, args...)
+	return rubyPath, rubyArgs
 }
 
 // findBuiltExtensions locates the compiled extension files
