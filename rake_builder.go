@@ -2,6 +2,7 @@ package rubyext
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 )
 
 var execLookPath = exec.LookPath
+var execCommandContext = exec.CommandContext
 
 // Ruby command constant
 const (
@@ -56,8 +58,9 @@ func (b *RakeBuilder) CanBuild(extensionFile string) bool {
 // Build compiles the extension using rake
 func (b *RakeBuilder) Build(ctx context.Context, config *BuildConfig, extensionFile string) (*BuildResult, error) {
 	result := &BuildResult{
-		Success: false,
-		Output:  []string{},
+		Success:             false,
+		Output:              []string{},
+		MissingDependencies: nil,
 	}
 
 	extensionPath := filepath.Join(config.GemDir, extensionFile)
@@ -69,6 +72,12 @@ func (b *RakeBuilder) Build(ctx context.Context, config *BuildConfig, extensionF
 			result.Error = err
 			return result, err
 		}
+	}
+
+	if missingDeps, err := b.ensureRakeAvailable(ctx, config); err != nil {
+		result.MissingDependencies = missingDeps
+		result.Error = err
+		return result, err
 	}
 
 	// Run rake to build the extension
@@ -282,4 +291,55 @@ func (b *RakeBuilder) findBuiltExtensions(extensionDir string) ([]string, error)
 	}
 
 	return extensions, nil
+}
+
+// ensureRakeAvailable verifies that rake can be executed either directly or via RubyGems.
+func (b *RakeBuilder) ensureRakeAvailable(ctx context.Context, config *BuildConfig) ([]string, error) {
+	if _, err := execLookPath("rake"); err == nil {
+		return nil, nil
+	}
+
+	rubyPath := config.RubyPath
+	if rubyPath == "" {
+		rubyPath = rubyCommand
+	}
+
+	if _, err := execLookPath(rubyPath); err != nil {
+		return nil, fmt.Errorf("ruby executable %q not found while checking for rake: %w", rubyPath, err)
+	}
+
+	script := strings.Join([]string{
+		"begin",
+		"  Gem.bin_path(\"rake\", \"rake\")",
+		"  exit 0",
+		"rescue Gem::LoadError, Gem::GemNotFoundException, Gem::Exception",
+		"  exit 1",
+		"end",
+	}, "\n")
+	cmd := execCommandContext(ctx, rubyPath, "-rrubygems", "-e", script)
+	env := append([]string{}, cmd.Env...)
+	if len(env) == 0 {
+		env = os.Environ()
+	}
+
+	for key, value := range config.Env {
+		env = append(env, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	if config.RubyPath != "" {
+		rubyDir := filepath.Dir(config.RubyPath)
+		currentPath := os.Getenv("PATH")
+		env = append(env, fmt.Sprintf("PATH=%s:%s", rubyDir, currentPath))
+	}
+	cmd.Env = env
+
+	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return []string{"rake"}, fmt.Errorf("rake not found")
+		}
+		return nil, fmt.Errorf("failed to verify rake availability: %w", err)
+	}
+
+	return nil, nil
 }

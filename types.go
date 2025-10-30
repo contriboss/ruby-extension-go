@@ -10,10 +10,11 @@ import "context"
 //   - Extensions list of compiled extension files (.so/.bundle/.dll)
 //   - Error information if the build failed
 type BuildResult struct {
-	Success    bool     // True if build completed successfully
-	Output     []string // Lines of output from the build process
-	Extensions []string // Paths to built extension files
-	Error      error    // Error if build failed, nil otherwise
+	Success             bool     // True if build completed successfully
+	Output              []string // Lines of output from the build process
+	Extensions          []string // Paths to built extension files
+	Error               error    // Error if build failed, nil otherwise
+	MissingDependencies []string // Names of build-time dependencies that were missing
 }
 
 // BuildConfig contains configuration for the build process.
