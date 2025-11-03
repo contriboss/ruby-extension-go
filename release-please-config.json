@@ -1,0 +1,13 @@
+{
+  "release-type": "simple",
+  "bootstrap-sha": "bf3abb17cdec29f7651f656a7c151e4814ce6140",
+  "packages": {
+    ".": {
+      "version-file": "VERSION",
+      "package-name": "ruby-extension-go",
+      "include-component-in-tag": false,
+      "tag-separator": "",
+      "include-v-in-tag": true
+    }
+  }
+}
