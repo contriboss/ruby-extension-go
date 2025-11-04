@@ -1,4 +1,5 @@
 name: release-please
+
 on:
   push:
     branches:
@@ -16,7 +17,7 @@ jobs:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
-          release-type: go
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout
         if: ${{ steps.release.outputs.release_created }}
