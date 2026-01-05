@@ -109,7 +109,7 @@ func TestEnsureRakeAvailableMissingRake(t *testing.T) {
 		t.Fatalf("expected rake not found error, got %v", err)
 	}
 
-	expectedMissing := []string{"rake"}
+	expectedMissing := []MissingDependency{{Name: "rake"}}
 	if !reflect.DeepEqual(missing, expectedMissing) {
 		t.Fatalf("expected missing dependencies %v, got %v", expectedMissing, missing)
 	}

@@ -294,7 +294,7 @@ func (b *RakeBuilder) findBuiltExtensions(extensionDir string) ([]string, error)
 }
 
 // ensureRakeAvailable verifies that rake can be executed either directly or via RubyGems.
-func (b *RakeBuilder) ensureRakeAvailable(ctx context.Context, config *BuildConfig) ([]string, error) {
+func (b *RakeBuilder) ensureRakeAvailable(ctx context.Context, config *BuildConfig) ([]MissingDependency, error) {
 	if _, err := execLookPath("rake"); err == nil {
 		return nil, nil
 	}
@@ -336,7 +336,7 @@ func (b *RakeBuilder) ensureRakeAvailable(ctx context.Context, config *BuildConf
 	if err := cmd.Run(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
-			return []string{"rake"}, fmt.Errorf("rake not found")
+			return []MissingDependency{{Name: "rake"}}, fmt.Errorf("rake not found")
 		}
 		return nil, fmt.Errorf("failed to verify rake availability: %w", err)
 	}
