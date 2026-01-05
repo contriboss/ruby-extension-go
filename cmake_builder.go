@@ -6,14 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
 // Build tool constants
 const (
 	unixMakefiles = "Unix Makefiles"
-	nmakeProgram  = "nmake"
 	makeProgram   = "make"
 )
 
@@ -34,12 +32,12 @@ func (b *CmakeBuilder) RequiredTools() []ToolRequirement {
 		},
 		{
 			Name:         "gcc",
-			Alternatives: []string{"clang", "cl"},
+			Alternatives: []string{"clang"},
 			Purpose:      "C/C++ compiler",
 		},
 		{
 			Name:         "make",
-			Alternatives: []string{"gmake", "ninja", "nmake"},
+			Alternatives: []string{"gmake", "ninja"},
 			Optional:     true,
 			Purpose:      "Build backend (CMake auto-detects if not specified)",
 		},
@@ -123,15 +121,15 @@ func (b *CmakeBuilder) runCmake(ctx context.Context, config *BuildConfig, extens
 		cmd.Env = append(cmd.Env, fmt.Sprintf("Ruby_EXECUTABLE=%s", config.RubyPath))
 	}
 
-	output, err := cmd.CombinedOutput()
-	outputLines := strings.Split(string(output), "\n")
-	result.Output = append(result.Output, outputLines...)
-
 	if config.Verbose {
 		result.Output = append(result.Output,
 			fmt.Sprintf("Running: cmake %s", strings.Join(args, " ")),
 			fmt.Sprintf("Working directory: %s", extensionDir))
 	}
+
+	output, err := cmd.CombinedOutput()
+	outputLines := strings.Split(string(output), "\n")
+	result.Output = append(result.Output, outputLines...)
 
 	if err != nil {
 		return BuildError("CMake", result.Output, err)
@@ -171,15 +169,15 @@ func (b *CmakeBuilder) runBuild(ctx context.Context, config *BuildConfig, extens
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
 	}
 
-	output, err := cmd.CombinedOutput()
-	outputLines := strings.Split(string(output), "\n")
-	result.Output = append(result.Output, outputLines...)
-
 	if config.Verbose {
 		result.Output = append(result.Output,
 			fmt.Sprintf("Running: cmake %s", strings.Join(args, " ")),
 			fmt.Sprintf("Working directory: %s", extensionDir))
 	}
+
+	output, err := cmd.CombinedOutput()
+	outputLines := strings.Split(string(output), "\n")
+	result.Output = append(result.Output, outputLines...)
 
 	if err != nil {
 		return BuildError("CMake Build", result.Output, err)
@@ -223,7 +221,6 @@ func (b *CmakeBuilder) findBuiltExtensions(extensionDir string) ([]string, error
 	patterns := []string{
 		"*.so",     // Linux/Unix shared libraries
 		"*.bundle", // macOS bundles
-		"*.dll",    // Windows dynamic libraries
 		"*.dylib",  // macOS dynamic libraries
 	}
 
@@ -259,30 +256,15 @@ func (b *CmakeBuilder) getGenerator() string {
 		return generator
 	}
 
-	// Platform-specific defaults
-	switch runtime.GOOS {
-	case platformWindows:
-		// Prefer Visual Studio if available, otherwise MinGW
-		return "Visual Studio 16 2019" // Modern default
-	case "darwin":
-		return unixMakefiles // Xcode also available
-	default:
-		return unixMakefiles
-	}
+	return unixMakefiles
 }
 
 // getMakeProgram returns the appropriate make program for the platform
 func (b *CmakeBuilder) getMakeProgram() string {
 	// Check environment variable first
-	if makeProgram := os.Getenv("MAKE"); makeProgram != "" {
-		return makeProgram
+	if mp := os.Getenv("MAKE"); mp != "" {
+		return mp
 	}
 
-	// Platform-specific defaults
-	switch runtime.GOOS {
-	case platformWindows:
-		return nmakeProgram
-	default:
-		return makeProgram
-	}
+	return makeProgram
 }

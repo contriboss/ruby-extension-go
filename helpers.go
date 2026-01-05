@@ -48,7 +48,7 @@ func MatchesPattern(filename string, patterns ...string) bool {
 // MatchesExtension checks if a filename has any of the given extensions.
 //
 // This is a case-insensitive check for file extensions.
-// Useful for checking compiled extension files (.so, .bundle, .dll).
+// Useful for checking compiled extension files (.so, .bundle, .dylib).
 //
 // # Parameters
 //
@@ -62,7 +62,7 @@ func MatchesPattern(filename string, patterns ...string) bool {
 // # Example
 //
 //	// Check for compiled extensions
-//	if MatchesExtension(filename, ".so", ".bundle", ".dll") {
+//	if MatchesExtension(filename, ".so", ".bundle", ".dylib") {
 //	    // This is a compiled extension
 //	}
 //

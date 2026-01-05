@@ -13,7 +13,7 @@ type MissingDependency struct {
 // After a build completes, this structure provides:
 //   - Success status indicating if the build completed without errors
 //   - Output lines captured from the build process (stdout/stderr)
-//   - Extensions list of compiled extension files (.so/.bundle/.dll)
+//   - Extensions list of compiled extension files (.so/.bundle/.dylib)
 //   - Error information if the build failed
 type BuildResult struct {
 	Success             bool                // True if build completed successfully

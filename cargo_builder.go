@@ -12,8 +12,7 @@ import (
 
 // Platform constants
 const (
-	platformWindows = "windows"
-	platformDarwin  = "darwin"
+	platformDarwin = "darwin"
 )
 
 // CargoBuilder handles Rust-based builds using Cargo
@@ -142,15 +141,15 @@ func (b *CargoBuilder) runCargo(ctx context.Context, config *BuildConfig, extens
 	// Set Ruby-specific environment variables
 	cmd.Env = append(cmd.Env, b.getRubyEnv(config)...)
 
-	output, err := cmd.CombinedOutput()
-	outputLines := strings.Split(string(output), "\n")
-	result.Output = append(result.Output, outputLines...)
-
 	if config.Verbose {
 		result.Output = append(result.Output,
 			fmt.Sprintf("Running: %s %s", cargoPath, strings.Join(args, " ")),
 			fmt.Sprintf("Working directory: %s", extensionDir))
 	}
+
+	output, err := cmd.CombinedOutput()
+	outputLines := strings.Split(string(output), "\n")
+	result.Output = append(result.Output, outputLines...)
 
 	if err != nil {
 		return BuildError("Cargo", result.Output, err)
@@ -208,12 +207,10 @@ func (b *CargoBuilder) findCargoOutputs(targetDir string) ([]string, error) {
 	// Platform-specific library patterns
 	var patterns []string
 	switch runtime.GOOS {
-	case platformWindows:
-		patterns = []string{"*.dll"}
 	case platformDarwin:
-		patterns = []string{"*.dylib", "lib*.dylib"}
+		patterns = []string{"*.dylib"}
 	default:
-		patterns = []string{"*.so", "lib*.so"}
+		patterns = []string{"*.so"}
 	}
 
 	for _, pattern := range patterns {
@@ -242,8 +239,6 @@ func (b *CargoBuilder) getRubyExtensionName(libPath string) string {
 	switch runtime.GOOS {
 	case platformDarwin:
 		return name + ".bundle"
-	case platformWindows:
-		return name + ".dll"
 	default:
 		return name + ".so"
 	}
@@ -254,12 +249,8 @@ func (b *CargoBuilder) getRustcArgs(_ *BuildConfig) []string {
 	var args []string
 
 	// Platform-specific linking arguments
-	switch runtime.GOOS {
-	case platformDarwin:
+	if runtime.GOOS == platformDarwin {
 		args = append(args, "-C", "link-arg=-Wl,-undefined,dynamic_lookup")
-	case platformWindows:
-		// Windows-specific linking
-		args = append(args, "-C", "link-arg=-Wl,--dynamicbase", "-C", "link-arg=-Wl,--disable-auto-image-base", "-C", "link-arg=-static-libgcc")
 	}
 
 	return args
@@ -303,25 +294,33 @@ func (b *CargoBuilder) getCargoPath() string {
 	return "cargo"
 }
 
-// copyFile copies a file from src to dst
+// copyFile copies a file from src to dst, preserving file permissions
 func (b *CargoBuilder) copyFile(src, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	// Create destination directory if needed
+	if mkdirErr := os.MkdirAll(filepath.Dir(dst), 0o755); mkdirErr != nil {
+		return mkdirErr
+	}
+
 	sourceFile, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer sourceFile.Close()
 
-	// Create destination directory if needed
-	if mkdirErr := os.MkdirAll(filepath.Dir(dst), 0755); mkdirErr != nil {
-		return mkdirErr
-	}
-
-	destFile, err := os.Create(dst)
+	destFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode())
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
 
-	_, err = destFile.ReadFrom(sourceFile)
-	return err
+	if _, err = destFile.ReadFrom(sourceFile); err != nil {
+		destFile.Close()
+		return err
+	}
+
+	return destFile.Close()
 }

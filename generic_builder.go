@@ -36,7 +36,7 @@ import (
 //	        "crystal", "build", "--single-module",
 //	        "--link-flags=-shared", "-o", "{{output}}", "{{input}}",
 //	    },
-//	    OutputPatterns: []string{"*.so", "*.dylib", "*.dll"},
+//	    OutputPatterns: []string{"*.so", "*.dylib"},
 //	})
 type GenericBuilder struct {
 	name           string
@@ -63,6 +63,7 @@ type GenericBuilderConfig struct {
 	//   {{input}}  - The input file (e.g., extension.cr)
 	//   {{output}} - The output file (e.g., extension.so)
 	//   {{dir}}    - The extension directory
+	//   {{jobs}}   - Number of parallel jobs (empty if not specified)
 	BuildCommand []string
 
 	// CleanCommand is an optional command to clean build artifacts
@@ -165,12 +166,19 @@ func (b *GenericBuilder) runBuild(ctx context.Context, config *BuildConfig, exte
 		outputFile = filepath.Join(config.DestPath, outputFile)
 	}
 
+	// Calculate jobs string for parallel builds
+	jobsStr := ""
+	if config.Parallel > 0 {
+		jobsStr = fmt.Sprintf("%d", config.Parallel)
+	}
+
 	// Replace placeholders in build command
 	args := make([]string, len(b.buildCommand))
 	for i, arg := range b.buildCommand {
 		arg = strings.ReplaceAll(arg, "{{input}}", inputFile)
 		arg = strings.ReplaceAll(arg, "{{output}}", outputFile)
 		arg = strings.ReplaceAll(arg, "{{dir}}", extensionDir)
+		arg = strings.ReplaceAll(arg, "{{jobs}}", jobsStr)
 		args[i] = arg
 	}
 
@@ -188,15 +196,15 @@ func (b *GenericBuilder) runBuild(ctx context.Context, config *BuildConfig, exte
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
 	}
 
-	output, err := cmd.CombinedOutput()
-	outputLines := strings.Split(string(output), "\n")
-	result.Output = append(result.Output, outputLines...)
-
 	if config.Verbose {
 		result.Output = append(result.Output,
 			fmt.Sprintf("Running: %s", strings.Join(args, " ")),
 			fmt.Sprintf("Working directory: %s", extensionDir))
 	}
+
+	output, err := cmd.CombinedOutput()
+	outputLines := strings.Split(string(output), "\n")
+	result.Output = append(result.Output, outputLines...)
 
 	if err != nil {
 		return BuildError(b.name, result.Output, err)
@@ -241,7 +249,7 @@ func NewCrystalBuilder() *GenericBuilder {
 			"crystal", "build", "--single-module",
 			"--link-flags=-shared", "-o", "{{output}}", "{{input}}",
 		},
-		OutputPatterns: []string{"*.so", "*.dylib", "*.dll"},
+		OutputPatterns: []string{"*.so", "*.dylib"},
 	})
 }
 
@@ -257,7 +265,7 @@ func NewZigBuilder() *GenericBuilder {
 			"zig", "build-lib", "-dynamic",
 			"-O", "ReleaseFast", "{{input}}",
 		},
-		OutputPatterns: []string{"*.so", "*.dylib", "*.dll", "zig-out/lib/*.so"},
+		OutputPatterns: []string{"*.so", "*.dylib", "zig-out/lib/*.so"},
 	})
 }
 
@@ -272,6 +280,6 @@ func NewSwiftBuilder() *GenericBuilder {
 		BuildCommand: []string{
 			"swiftc", "-emit-library", "-o", "{{output}}", "{{input}}",
 		},
-		OutputPatterns: []string{"*.so", "*.dylib", "*.dll"},
+		OutputPatterns: []string{"*.so", "*.dylib"},
 	})
 }
