@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 )
@@ -104,12 +105,16 @@ func (b *ExtConfBuilder) runExtConf(ctx context.Context, config *BuildConfig, ex
 	}
 
 	if err != nil {
+		// Parse output for missing dependencies
+		result.MissingDependencies = b.parseLoadErrors(result.Output)
 		return BuildError("ExtConf", result.Output, err)
 	}
 
 	// Verify Makefile was created
 	makefilePath := filepath.Join(extensionDir, "Makefile")
 	if _, err := os.Stat(makefilePath); os.IsNotExist(err) {
+		// Parse output for missing dependencies even when Makefile wasn't generated
+		result.MissingDependencies = b.parseLoadErrors(result.Output)
 		return BuildError("ExtConf", result.Output, fmt.Errorf("makefile not generated"))
 	}
 
@@ -228,4 +233,59 @@ func (b *ExtConfBuilder) getMakeProgram() string {
 	default:
 		return "make"
 	}
+}
+
+// parseLoadErrors parses build output for missing dependencies.
+// It recognizes common Ruby error patterns:
+//   - "cannot load such file -- gem_name"
+//   - "Could not find 'gem_name' (~> 1.0)"
+//   - "Gem::MissingSpecVersionError: gem_name requires version ~> 1.0"
+//   - "LoadError: cannot load such file -- gem_name/subpath"
+func (b *ExtConfBuilder) parseLoadErrors(output []string) []MissingDependency {
+	var deps []MissingDependency
+	seen := make(map[string]bool)
+
+	// Regex patterns for different error formats
+	patterns := []*regexp.Regexp{
+		// "cannot load such file -- mini_portile2" or "cannot load such file -- mini_portile2/version"
+		regexp.MustCompile(`cannot load such file -- ([a-zA-Z0-9_-]+)`),
+		// "Could not find 'mini_portile2' (~> 2.8.2)"
+		regexp.MustCompile(`Could not find '([^']+)'(?: \(([^)]+)\))?`),
+		// "Gem::MissingSpecVersionError: mini_portile2 requires ~> 2.8.2"
+		regexp.MustCompile(`Gem::MissingSpec(?:Version)?Error:?\s*([a-zA-Z0-9_-]+)(?:\s+requires?\s+(.+))?`),
+		// "Bundler could not find compatible versions for gem \"mini_portile2\":"
+		regexp.MustCompile(`compatible versions for gem "([^"]+)"`),
+		// "mini_portile2 (~> 2.8.2) was resolved to 2.8.2"
+		regexp.MustCompile(`^([a-zA-Z0-9_-]+) \(([^)]+)\) was resolved`),
+	}
+
+	for _, line := range output {
+		for i, re := range patterns {
+			matches := re.FindStringSubmatch(line)
+			if matches == nil {
+				continue
+			}
+
+			name := matches[1]
+			if seen[name] {
+				continue
+			}
+			seen[name] = true
+
+			dep := MissingDependency{Name: name}
+
+			// Extract version constraint if present
+			if i == 1 && len(matches) > 2 && matches[2] != "" {
+				dep.Constraint = matches[2]
+			} else if i == 2 && len(matches) > 2 && matches[2] != "" {
+				dep.Constraint = strings.TrimSpace(matches[2])
+			} else if i == 4 && len(matches) > 2 {
+				dep.Constraint = matches[2]
+			}
+
+			deps = append(deps, dep)
+		}
+	}
+
+	return deps
 }

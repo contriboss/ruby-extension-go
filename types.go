@@ -2,6 +2,12 @@ package rubyext
 
 import "context"
 
+// MissingDependency represents a build-time dependency that was not found.
+type MissingDependency struct {
+	Name       string // Gem name (e.g., "mini_portile2")
+	Constraint string // Version constraint if known (e.g., "~> 2.8.2"), empty if unknown
+}
+
 // BuildResult contains the output and status of a build operation.
 //
 // After a build completes, this structure provides:
@@ -10,11 +16,11 @@ import "context"
 //   - Extensions list of compiled extension files (.so/.bundle/.dll)
 //   - Error information if the build failed
 type BuildResult struct {
-	Success             bool     // True if build completed successfully
-	Output              []string // Lines of output from the build process
-	Extensions          []string // Paths to built extension files
-	Error               error    // Error if build failed, nil otherwise
-	MissingDependencies []string // Names of build-time dependencies that were missing
+	Success             bool                // True if build completed successfully
+	Output              []string            // Lines of output from the build process
+	Extensions          []string            // Paths to built extension files
+	Error               error               // Error if build failed, nil otherwise
+	MissingDependencies []MissingDependency // Build-time dependencies that were missing
 }
 
 // BuildConfig contains configuration for the build process.
