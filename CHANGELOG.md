@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/contriboss/ruby-extension-go/compare/v0.3.0...v0.3.1) (2026-01-19)
+
+
+### Bug Fixes
+
+* remove Windows support and fix multiple builder bugs ([#10](https://github.com/contriboss/ruby-extension-go/issues/10)) ([388dcec](https://github.com/contriboss/ruby-extension-go/commit/388dcecb435c9a29f780bf3b5512e4e7bc8d0849))
+
 ## [0.3.0](https://github.com/contriboss/ruby-extension-go/compare/v0.2.4...v0.3.0) (2026-01-05)
 
 
