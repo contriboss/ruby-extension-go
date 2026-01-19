@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -31,12 +30,12 @@ func (b *MakefileBuilder) RequiredTools() []ToolRequirement {
 	return []ToolRequirement{
 		{
 			Name:         "make",
-			Alternatives: []string{"gmake", "nmake"},
+			Alternatives: []string{"gmake"},
 			Purpose:      "Build automation tool",
 		},
 		{
 			Name:         "gcc",
-			Alternatives: []string{"clang", "cc", "cl"},
+			Alternatives: []string{"clang", "cc"},
 			Purpose:      "C/C++ compiler",
 		},
 	}
@@ -86,8 +85,6 @@ func (b *MakefileBuilder) noConfigure(ctx context.Context, config *BuildConfig, 
 }
 
 // runMake executes make to compile the extension
-//
-//nolint:dupl // Similar to extconf_builder but with different context
 func (b *MakefileBuilder) runMake(ctx context.Context, config *BuildConfig, extensionDir string, result *BuildResult) error {
 	makeProgram := b.getMakeProgram()
 
@@ -162,7 +159,6 @@ func (b *MakefileBuilder) findBuiltExtensions(extensionDir string) ([]string, er
 	patterns := []string{
 		"*.so",     // Linux/Unix shared libraries
 		"*.bundle", // macOS bundles
-		"*.dll",    // Windows dynamic libraries
 	}
 
 	for _, pattern := range patterns {
@@ -186,15 +182,9 @@ func (b *MakefileBuilder) findBuiltExtensions(extensionDir string) ([]string, er
 // getMakeProgram returns the appropriate make program for the platform
 func (b *MakefileBuilder) getMakeProgram() string {
 	// Check environment variable first
-	if makeEnv := os.Getenv("MAKE"); makeEnv != "" {
-		return makeEnv
+	if mp := os.Getenv("MAKE"); mp != "" {
+		return mp
 	}
 
-	// Platform-specific defaults
-	switch runtime.GOOS {
-	case platformWindows:
-		return nmakeProgram
-	default:
-		return makeProgram
-	}
+	return makeProgram
 }

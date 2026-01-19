@@ -11,7 +11,7 @@ import (
 
 // GoBuilder handles Go-based builds using CGO to create shared libraries.
 //
-// This builder compiles Go code into shared libraries (.so/.dll/.dylib)
+// This builder compiles Go code into shared libraries (.so/.dylib)
 // that can be loaded by Ruby using FFI or similar mechanisms.
 //
 // Common use cases:
@@ -139,11 +139,10 @@ func (b *GoBuilder) runGoBuild(ctx context.Context, config *BuildConfig, extensi
 func (b *GoBuilder) findBuiltExtensions(extensionDir string) ([]string, error) {
 	var extensions []string
 
-	// Go builds produce .so, .dll, or .dylib depending on platform
+	// Go builds produce .so or .dylib depending on platform
 	patterns := []string{
 		"*.so",    // Linux
 		"*.dylib", // macOS
-		"*.dll",   // Windows
 	}
 
 	for _, pattern := range patterns {

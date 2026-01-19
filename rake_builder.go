@@ -184,7 +184,8 @@ func (b *RakeBuilder) runRake(ctx context.Context, config *BuildConfig, extensio
 
 	// Clean first if requested
 	if config.CleanFirst {
-		cleanCmd := exec.CommandContext(ctx, "rake", "clean")
+		cleanCmdName, cleanCmdArgs := b.determineRakeCommand(config, []string{"clean"})
+		cleanCmd := exec.CommandContext(ctx, cleanCmdName, cleanCmdArgs...)
 		cleanCmd.Dir = extensionDir
 		cleanOutput, _ := cleanCmd.CombinedOutput()
 		result.Output = append(result.Output, strings.Split(string(cleanOutput), "\n")...)
@@ -222,15 +223,15 @@ func (b *RakeBuilder) runRake(ctx context.Context, config *BuildConfig, extensio
 		cmd.Env = append(cmd.Env, fmt.Sprintf("RUBY_VERSION=%s", config.RubyVersion))
 	}
 
-	output, err := cmd.CombinedOutput()
-	outputLines := strings.Split(string(output), "\n")
-	result.Output = append(result.Output, outputLines...)
-
 	if config.Verbose {
 		result.Output = append(result.Output,
 			fmt.Sprintf("Running: rake %s", strings.Join(args, " ")),
 			fmt.Sprintf("Working directory: %s", extensionDir))
 	}
+
+	output, err := cmd.CombinedOutput()
+	outputLines := strings.Split(string(output), "\n")
+	result.Output = append(result.Output, outputLines...)
 
 	if err != nil {
 		return BuildError("Rake", result.Output, err)
@@ -264,15 +265,12 @@ func (b *RakeBuilder) findBuiltExtensions(extensionDir string) ([]string, error)
 
 	// Common extension file patterns
 	patterns := []string{
-		"*.so",     // Linux/Unix shared libraries
-		"*.bundle", // macOS bundles
-		"*.dll",    // Windows dynamic libraries
-		"lib/*.so", // Extensions might be in lib subdirectory
-		"lib/*.bundle",
-		"lib/*.dll",
-		"ext/*.so", // Or in ext subdirectory
-		"ext/*.bundle",
-		"ext/*.dll",
+		"*.so",         // Linux/Unix shared libraries
+		"*.bundle",     // macOS bundles
+		"lib/*.so",     // Extensions might be in lib subdirectory
+		"lib/*.bundle", // macOS bundles in lib
+		"ext/*.so",     // Or in ext subdirectory
+		"ext/*.bundle", // macOS bundles in ext
 	}
 
 	for _, pattern := range patterns {

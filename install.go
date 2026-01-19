@@ -13,7 +13,6 @@ import (
 var nativeLibraryExtensions = map[string]struct{}{
 	".so":     {},
 	".bundle": {},
-	".dll":    {},
 	".dylib":  {},
 }
 
@@ -184,7 +183,6 @@ func determineInstallRelativePath(gemDir, extensionFile, builtRel string) string
 	if strings.HasSuffix(extensionFile, "extconf.rb") {
 		relPath := strings.TrimPrefix(extensionFile, "ext/")
 		relPath = strings.TrimSuffix(relPath, "/extconf.rb")
-		relPath = strings.TrimSuffix(relPath, filepath.Ext(relPath))
 		relPath = strings.Trim(relPath, "/\\")
 
 		if relPath != "" && !strings.HasSuffix(relPath, baseName) {

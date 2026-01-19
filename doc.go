@@ -51,6 +51,6 @@
 //
 // # Platform Support
 //
-// Full support on Linux and macOS. Limited Windows support (MinGW/MSYS2).
+// Full support on Linux and macOS.
 // Cross-compilation is supported with proper toolchain configuration.
 package rubyext

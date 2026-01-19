@@ -18,7 +18,6 @@ import (
 //
 // Tool alternatives handle platform differences:
 //   - FreeBSD: Uses gmake instead of make, clang instead of gcc
-//   - Windows: Uses cl (MSVC) instead of gcc, nmake instead of make
 //   - macOS: Uses clang by default
 //   - Linux: Uses gcc/make by default
 //

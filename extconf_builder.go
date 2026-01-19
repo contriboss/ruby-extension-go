@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 )
 
@@ -28,12 +27,12 @@ func (b *ExtConfBuilder) RequiredTools() []ToolRequirement {
 		},
 		{
 			Name:         "gcc",
-			Alternatives: []string{"clang", "cc", "cl"},
+			Alternatives: []string{"clang", "cc"},
 			Purpose:      "C/C++ compiler for native extensions",
 		},
 		{
 			Name:         "make",
-			Alternatives: []string{"gmake", "nmake"},
+			Alternatives: []string{"gmake"},
 			Purpose:      "Build automation tool",
 		},
 	}
@@ -94,15 +93,15 @@ func (b *ExtConfBuilder) runExtConf(ctx context.Context, config *BuildConfig, ex
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
 	}
 
-	output, err := cmd.CombinedOutput()
-	outputLines := strings.Split(string(output), "\n")
-	result.Output = append(result.Output, outputLines...)
-
 	if config.Verbose {
 		result.Output = append(result.Output,
 			fmt.Sprintf("Running: %s %s", rubyPath, strings.Join(args, " ")),
 			fmt.Sprintf("Working directory: %s", extensionDir))
 	}
+
+	output, err := cmd.CombinedOutput()
+	outputLines := strings.Split(string(output), "\n")
+	result.Output = append(result.Output, outputLines...)
 
 	if err != nil {
 		// Parse output for missing dependencies
@@ -122,8 +121,6 @@ func (b *ExtConfBuilder) runExtConf(ctx context.Context, config *BuildConfig, ex
 }
 
 // runMake executes make to compile the extension
-//
-//nolint:dupl // Similar to makefile builder runMake but tailored for extconf
 func (b *ExtConfBuilder) runMake(ctx context.Context, config *BuildConfig, extensionDir string, result *BuildResult) error {
 	makeProgram := b.getMakeProgram()
 
@@ -158,15 +155,15 @@ func (b *ExtConfBuilder) runMake(ctx context.Context, config *BuildConfig, exten
 		cmd.Env = append(cmd.Env, fmt.Sprintf("DESTDIR=%s", config.DestPath))
 	}
 
-	output, err := cmd.CombinedOutput()
-	outputLines := strings.Split(string(output), "\n")
-	result.Output = append(result.Output, outputLines...)
-
 	if config.Verbose {
 		result.Output = append(result.Output,
 			fmt.Sprintf("Running: %s %s", makeProgram, strings.Join(args, " ")),
 			fmt.Sprintf("Working directory: %s", extensionDir))
 	}
+
+	output, err := cmd.CombinedOutput()
+	outputLines := strings.Split(string(output), "\n")
+	result.Output = append(result.Output, outputLines...)
 
 	if err != nil {
 		return BuildError("Make", result.Output, err)
@@ -198,7 +195,6 @@ func (b *ExtConfBuilder) findBuiltExtensions(extensionDir string) ([]string, err
 	patterns := []string{
 		"*.so",     // Linux/Unix shared libraries
 		"*.bundle", // macOS bundles
-		"*.dll",    // Windows dynamic libraries
 	}
 
 	for _, pattern := range patterns {
@@ -222,17 +218,11 @@ func (b *ExtConfBuilder) findBuiltExtensions(extensionDir string) ([]string, err
 // getMakeProgram returns the appropriate make program for the platform
 func (b *ExtConfBuilder) getMakeProgram() string {
 	// Check environment variable first
-	if makeProgram := os.Getenv("MAKE"); makeProgram != "" {
-		return makeProgram
+	if mp := os.Getenv("MAKE"); mp != "" {
+		return mp
 	}
 
-	// Platform-specific defaults
-	switch runtime.GOOS {
-	case "windows":
-		return "nmake" // Visual Studio's make
-	default:
-		return "make"
-	}
+	return "make"
 }
 
 // parseLoadErrors parses build output for missing dependencies.

@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 )
 
@@ -243,11 +242,9 @@ func (b *ConfigureBuilder) findBuiltExtensions(extensionDir string) ([]string, e
 	patterns := []string{
 		"*.so",       // Linux/Unix shared libraries
 		"*.bundle",   // macOS bundles
-		"*.dll",      // Windows dynamic libraries
 		"*.dylib",    // macOS dynamic libraries
 		".libs/*.so", // Libtool output directory
 		".libs/*.dylib",
-		".libs/*.dll",
 	}
 
 	for _, pattern := range patterns {
@@ -271,15 +268,9 @@ func (b *ConfigureBuilder) findBuiltExtensions(extensionDir string) ([]string, e
 // getMakeProgram returns the appropriate make program for the platform
 func (b *ConfigureBuilder) getMakeProgram() string {
 	// Check environment variable first
-	if makeProgram := os.Getenv("MAKE"); makeProgram != "" {
-		return makeProgram
+	if mp := os.Getenv("MAKE"); mp != "" {
+		return mp
 	}
 
-	// Platform-specific defaults
-	switch runtime.GOOS {
-	case platformWindows:
-		return makeProgram // Most Windows autotools use MinGW/MSYS2 make
-	default:
-		return makeProgram
-	}
+	return makeProgram
 }

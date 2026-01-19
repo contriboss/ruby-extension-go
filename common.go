@@ -10,7 +10,7 @@ import (
 // Many Ruby extension build systems follow a similar pattern:
 //  1. Configure: Generate build files (Makefile, build.ninja, etc.)
 //  2. Build: Compile the extension using the generated files
-//  3. Find: Locate the compiled extension files (.so, .bundle, .dll)
+//  3. Find: Locate the compiled extension files (.so, .bundle, .dylib)
 //
 // This function provides a consistent way to execute this pattern,
 // allowing builders to focus on implementing their specific logic
