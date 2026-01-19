@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/contriboss/ruby-extension-go/compare/v0.3.1...v0.3.2) (2026-01-19)
+
+
+### Bug Fixes
+
+* update pre-commit golangci-lint version ([#14](https://github.com/contriboss/ruby-extension-go/issues/14)) ([4d5e376](https://github.com/contriboss/ruby-extension-go/commit/4d5e37681783586fcf034a033841614269505d66))
+
 ## [0.3.1](https://github.com/contriboss/ruby-extension-go/compare/v0.3.0...v0.3.1) (2026-01-19)
 
 
